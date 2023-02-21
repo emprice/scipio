@@ -133,24 +133,32 @@ double PhiArray::sin(size_t j) const { return m_sin[j]; }
 double PhiArray::cos(size_t j) const { return m_cos[j]; }
 
 DataArray::DataArray(size_t nth, size_t nphi) :
-    m_nth(nth), m_nphi(nphi)
+    m_nth(nth), m_nphi(nphi), m_owndata(true)
 {
     // allocate aligned memory for fftw
     m_data = reinterpret_cast<double*>
         (fftw_malloc(nth * nphi * sizeof(double)));
 }
 
+DataArray::DataArray(size_t nth, size_t nphi, double *ptr) :
+    m_nth(nth), m_nphi(nphi), m_data(ptr), m_owndata(false)
+{
+    // no-op
+}
+
 DataArray::~DataArray()
 {
     // free the aligned memory
-    if (m_data) fftw_free(m_data);
+    if (m_data && m_owndata) fftw_free(m_data);
 }
 
-DataArray::DataArray(DataArray&& other) : m_data(nullptr)
+DataArray::DataArray(DataArray&& other) :
+    m_data(nullptr), m_owndata(false)
 {
     std::swap(m_nth, other.m_nth);
     std::swap(m_nphi, other.m_nphi);
     std::swap(m_data, other.m_data);
+    std::swap(m_owndata, other.m_owndata);
 }
 
 DataArray& DataArray::operator=(DataArray&& other)
@@ -158,6 +166,7 @@ DataArray& DataArray::operator=(DataArray&& other)
     std::swap(m_nth, other.m_nth);
     std::swap(m_nphi, other.m_nphi);
     std::swap(m_data, other.m_data);
+    std::swap(m_owndata, other.m_owndata);
 
     return *this;
 }
@@ -165,6 +174,8 @@ DataArray& DataArray::operator=(DataArray&& other)
 size_t DataArray::nth() const { return m_nth; }
 
 size_t DataArray::nphi() const { return m_nphi; }
+
+size_t DataArray::size() const { return m_nth * m_nphi; }
 
 const double *DataArray::data() const { return m_data; }
 
@@ -218,6 +229,11 @@ double SphericalMesh::phi(size_t j) const { return m_phi.node(j); }
 DataArray SphericalMesh::makeArray() const
 {
     return DataArray(m_nth, m_nphi);
+}
+
+DataArray SphericalMesh::makeArray(double *ptr) const
+{
+    return DataArray(m_nth, m_nphi, ptr);
 }
 
 YlmLookupTable::YlmLookupTable(SphericalMesh const& mesh) :

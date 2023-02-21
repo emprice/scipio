@@ -127,6 +127,7 @@ struct PhiArray
 struct DataArray
 {
     DataArray(size_t nth, size_t nphi);
+    DataArray(size_t nth, size_t nphi, double *ptr);
     ~DataArray();
 
     /// Copy construction is explicitly disallowed
@@ -147,6 +148,9 @@ struct DataArray
     /// Returns the number of values in the second (phi) dimension
     size_t nphi() const;
 
+    /// Returns the total number of values
+    size_t size() const;
+
     /// Returns a read-only pointer to the data array
     const double *data() const;
 
@@ -165,6 +169,7 @@ struct DataArray
         size_t m_nth;       ///< Number of theta-dimension values
         size_t m_nphi;      ///< Number of phi-dimension values
         double *m_data;     ///< Raw data storage
+        bool m_owndata;     ///< Flag for data ownership
 
         size_t index(size_t i, size_t j) const;
 };
@@ -208,6 +213,9 @@ struct SphericalMesh
 
     /// Creates a data array compatible with this mesh
     DataArray makeArray() const;
+
+    /// Creates a wrapper data array compatible with this mesh
+    DataArray makeArray(double *ptr) const;
 
     private:
         size_t m_nth;   ///< Number of theta nodes
