@@ -361,6 +361,10 @@ YlmTransformer& YlmTransformer::operator=(YlmTransformer&& other)
 
 void YlmTransformer::forward(DataArray& inout)
 {
+    // this factor accounts for normalizing the fft output and the
+    // integration over the polynomials
+    double norm = M_PI / (m_nphi - 1);
+
     // compute fft to extract the cos(m phi) components
     fftw_execute_r2r(m_inplace_plan, inout.data(), m_wk.data());
 
@@ -385,17 +389,13 @@ void YlmTransformer::forward(DataArray& inout)
                     m_wk(i, j) * m_lookup(i, l, m);
             }
 
-            inout(l, j) = sum;
+            inout(l, j) = sum * norm;
         }
     }
 }
 
 void YlmTransformer::backward(DataArray& inout)
 {
-    // this factor accounts for normalizing the fft output and the
-    // integration over the polynomials
-    double norm = M_PI / (m_nphi - 1);
-
     for (size_t j = 0; j < m_nphi; ++j)
     {
         size_t m = 2 * j;
@@ -410,8 +410,7 @@ void YlmTransformer::backward(DataArray& inout)
                 sum += inout(l, j) * m_lookup(i, l, m);
             }
 
-            // store normalized sum
-            m_wk(i, j) = sum * norm;
+            m_wk(i, j) = sum;
         }
     }
 
@@ -421,6 +420,10 @@ void YlmTransformer::backward(DataArray& inout)
 
 void YlmTransformer::forward(DataArray const& in, DataArray& out)
 {
+    // this factor accounts for normalizing the fft output and the
+    // integration over the polynomials
+    double norm = M_PI / (m_nphi - 1);
+
     // compute fft to extract the cos(m phi) components
     // NOTE: fftw won't overwrite the input by construction, but
     // we have to cast away the const-ness so that the function
@@ -449,17 +452,13 @@ void YlmTransformer::forward(DataArray const& in, DataArray& out)
                     m_wk(i, j) * m_lookup(i, l, m);
             }
 
-            out(l, j) = sum;
+            out(l, j) = sum * norm;
         }
     }
 }
 
 void YlmTransformer::backward(DataArray const& in, DataArray& out)
 {
-    // this factor accounts for normalizing the fft output and the
-    // integration over the polynomials
-    double norm = M_PI / (m_nphi - 1);
-
     for (size_t j = 0; j < m_nphi; ++j)
     {
         size_t m = 2 * j;
@@ -474,8 +473,7 @@ void YlmTransformer::backward(DataArray const& in, DataArray& out)
                 sum += in(l, j) * m_lookup(i, l, m);
             }
 
-            // store normalized sum
-            m_wk(i, j) = sum * norm;
+            m_wk(i, j) = sum;
         }
     }
 
