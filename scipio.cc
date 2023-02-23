@@ -132,6 +132,12 @@ double PhiArray::sin(size_t j) const { return m_sin[j]; }
 
 double PhiArray::cos(size_t j) const { return m_cos[j]; }
 
+DataArray::DataArray() :
+    m_nth(0), m_nphi(0), m_data(nullptr), m_owndata(false)
+{
+    // no-op
+}
+
 DataArray::DataArray(size_t nth, size_t nphi) :
     m_nth(nth), m_nphi(nphi), m_owndata(true)
 {
@@ -247,7 +253,7 @@ YlmLookupTable::YlmLookupTable(SphericalMesh const& mesh) :
     for (size_t i = 0; i < m_nth; ++i)
     {
         // fill array of legendre polynomial values at fixed angle
-        gsl_sf_legendre_array(GSL_SF_LEGENDRE_SPHARM, m_lmax,
+        gsl_sf_legendre_array(GSL_SF_LEGENDRE_FULL, m_lmax,
             mesh.theta().cos(i), lwk);
 
         // store the values in the data layout we expect
@@ -363,7 +369,7 @@ void YlmTransformer::forward(DataArray& inout)
 {
     // this factor accounts for normalizing the fft output and the
     // integration over the polynomials
-    double norm = M_PI / (m_nphi - 1);
+    double norm = 0.5 / (m_nphi - 1);
 
     // compute fft to extract the cos(m phi) components
     fftw_execute_r2r(m_inplace_plan, inout.data(), m_wk.data());
@@ -422,7 +428,7 @@ void YlmTransformer::forward(DataArray const& in, DataArray& out)
 {
     // this factor accounts for normalizing the fft output and the
     // integration over the polynomials
-    double norm = M_PI / (m_nphi - 1);
+    double norm = 0.5 / (m_nphi - 1);
 
     // compute fft to extract the cos(m phi) components
     // NOTE: fftw won't overwrite the input by construction, but

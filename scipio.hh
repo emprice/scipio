@@ -126,6 +126,7 @@ struct PhiArray
 /// Wrapper for a contiguously-stored, 2-dimensional array
 struct DataArray
 {
+    DataArray();
     DataArray(size_t nth, size_t nphi);
     DataArray(size_t nth, size_t nphi, double *ptr);
     ~DataArray();
