@@ -8,6 +8,8 @@
 #define SCIPIO_HH
 
 #include <fftw3.h>
+
+#include <memory>
 #include <iostream>
 #include <functional>
 
@@ -28,9 +30,6 @@ struct ThetaArray
      */
     ThetaArray(size_t nth);
 
-    /// Frees the allocated resources for the arrays
-    ~ThetaArray();
-
     /// Copy construction is explicitly disallowed
     ThetaArray(ThetaArray const& other) = delete;
 
@@ -38,10 +37,10 @@ struct ThetaArray
     ThetaArray& operator=(ThetaArray const& other) = delete;
 
     /// Move constructor; swaps an existing instance with another
-    ThetaArray(ThetaArray&& other);
+    ThetaArray(ThetaArray&& other) = default;
 
     /// Move assignment; swaps an existing instance with another
-    ThetaArray& operator=(ThetaArray&& other);
+    ThetaArray& operator=(ThetaArray&& other) = default;
 
     /// Returns the number of nodes
     size_t size() const;
@@ -62,13 +61,13 @@ struct ThetaArray
     double cos(size_t i) const;
 
     private:
-        size_t m_nth;       ///< Number of nodes
+        size_t m_nth;                           ///< Number of nodes
 
-        double *m_nodes;    ///< Node data
-        double *m_weights;  ///< Weight data
+        std::unique_ptr<double[]> m_nodes;      ///< Node data
+        std::unique_ptr<double[]> m_weights;    ///< Weight data
 
-        double *m_sin;      ///< Sine data
-        double *m_cos;      ///< Cosine data
+        std::unique_ptr<double[]> m_sin;        ///< Sine data
+        std::unique_ptr<double[]> m_cos;        ///< Cosine data
 };
 
 /**
@@ -85,9 +84,6 @@ struct PhiArray
      */
     PhiArray(size_t nphi);
 
-    /// Frees the allocated resources for the arrays
-    ~PhiArray();
-
     /// Copy construction is explicitly disallowed
     PhiArray(PhiArray const& other) = delete;
 
@@ -95,10 +91,10 @@ struct PhiArray
     PhiArray& operator=(PhiArray const& other) = delete;
 
     /// Move constructor; swaps an existing instance with another
-    PhiArray(PhiArray&& other);
+    PhiArray(PhiArray&& other) = default;
 
     /// Move assignment; swaps an existing instance with another
-    PhiArray& operator=(PhiArray&& other);
+    PhiArray& operator=(PhiArray&& other) = default;
 
     /// Returns the number of nodes
     size_t size() const;
@@ -116,11 +112,12 @@ struct PhiArray
     double cos(size_t j) const;
 
     private:
-        size_t m_nphi;      ///< Number of nodes
-        double *m_nodes;    ///< Node data
+        size_t m_nphi;                      ///< Number of nodes
 
-        double *m_sin;      ///< Sine data
-        double *m_cos;      ///< Cosine data
+        std::unique_ptr<double[]> m_nodes;  ///< Node data
+
+        std::unique_ptr<double[]> m_sin;    ///< Sine data
+        std::unique_ptr<double[]> m_cos;    ///< Cosine data
 };
 
 /// Wrapper for a contiguously-stored, 2-dimensional array
@@ -216,7 +213,7 @@ struct SphericalMesh
     DataArray makeArray() const;
 
     /// Creates a wrapper data array compatible with this mesh
-    DataArray makeArray(double *ptr) const;
+    DataArray wrapArray(double *ptr) const;
 
     private:
         size_t m_nth;   ///< Number of theta nodes
@@ -235,9 +232,6 @@ struct YlmLookupTable
     /// Constructs and fills the lookup table
     YlmLookupTable(SphericalMesh const& mesh);
 
-    /// Frees resources associated with the table
-    ~YlmLookupTable();
-
     /// Copy construction is explicitly disallowed
     YlmLookupTable(YlmLookupTable const& other) = delete;
 
@@ -245,10 +239,10 @@ struct YlmLookupTable
     YlmLookupTable& operator=(YlmLookupTable const& other) = delete;
 
     /// Move constructor; swaps an existing instance with another
-    YlmLookupTable(YlmLookupTable&& other);
+    YlmLookupTable(YlmLookupTable&& other) = default;
 
     /// Move assignment; swaps an existing instance with another
-    YlmLookupTable& operator=(YlmLookupTable&& other);
+    YlmLookupTable& operator=(YlmLookupTable&& other) = default;
 
     /// Returns the maximum value of ell used in constructing the table
     size_t lmax() const;
@@ -263,9 +257,10 @@ struct YlmLookupTable
     double operator()(size_t i, size_t l, size_t m) const;
 
     private:
-        size_t m_nth;       ///< Number of theta values in the table
-        size_t m_lmax;      ///< Maximum value of ell in the table
-        double *m_data;     ///< Raw table data
+        size_t m_nth;   ///< Number of theta values in the table
+        size_t m_lmax;  ///< Maximum value of ell in the table
+
+        std::unique_ptr<double[]> m_data;   ///< Raw table data
 
         /// Helper function for computing indices into @c m_data
         size_t index(size_t i, size_t l, size_t m) const;

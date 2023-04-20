@@ -12,19 +12,25 @@ using namespace scipio;
 
 ThetaArray::ThetaArray(size_t nth) : m_nth(nth)
 {
-    m_nodes   = new double[m_nth];
-    m_weights = new double[m_nth];
+    m_nodes   = std::unique_ptr<double[]>(new double[m_nth]);
+    m_weights = std::unique_ptr<double[]>(new double[m_nth]);
 
-    m_sin = new double[m_nth];
-    m_cos = new double[m_nth];
+    m_sin = std::unique_ptr<double[]>(new double[m_nth]);
+    m_cos = std::unique_ptr<double[]>(new double[m_nth]);
 
     // get the quadrature nodes and weights
     gsl_integration_fixed_workspace *wk =
         gsl_integration_fixed_alloc(gsl_integration_fixed_legendre,
-            m_nth, -1, 1, 0, 0);
-    std::copy(wk->x, wk->x + m_nth, m_cos);
-    std::copy(wk->weights, wk->weights + m_nth, m_weights);
+            m_nth - 2, -1, 1, 0, 0);
+    std::copy(wk->x, wk->x + (m_nth - 2), m_cos.get() + 1);
+    std::copy(wk->weights, wk->weights + (m_nth - 2), m_weights.get() + 1);
     gsl_integration_fixed_free(wk);
+
+    m_cos[0] = -1;
+    m_cos[m_nth-1] = +1;
+
+    m_weights[0] = 0;
+    m_weights[m_nth-1] = 0;
 
     // precompute the values of theta = acos(x) and sin(theta)
     for (size_t i = 0; i < m_nth; ++i)
@@ -32,42 +38,16 @@ ThetaArray::ThetaArray(size_t nth) : m_nth(nth)
         m_nodes[i] = std::acos(m_cos[i]);
         m_sin[i] = std::sin(m_nodes[i]);
     }
-}
 
-ThetaArray::~ThetaArray()
-{
-    delete[] m_nodes;
-    delete[] m_weights;
-
-    delete[] m_sin;
-    delete[] m_cos;
-}
-
-ThetaArray::ThetaArray(ThetaArray&& other)
-{
-    std::swap(m_nth, other.m_nth);
-    std::swap(m_nodes, other.m_nodes);
-    std::swap(m_weights, other.m_weights);
-
-    std::swap(m_sin, other.m_sin);
-    std::swap(m_cos, other.m_cos);
-}
-
-ThetaArray& ThetaArray::operator=(ThetaArray&& other)
-{
-    std::swap(m_nth, other.m_nth);
-    std::swap(m_nodes, other.m_nodes);
-    std::swap(m_weights, other.m_weights);
-
-    std::swap(m_sin, other.m_sin);
-    std::swap(m_cos, other.m_cos);
-
-    return *this;
+    std::reverse(m_nodes.get(), m_nodes.get() + m_nth);
+    std::reverse(m_weights.get(), m_weights.get() + m_nth);
+    std::reverse(m_cos.get(), m_cos.get() + m_nth);
+    std::reverse(m_sin.get(), m_sin.get() + m_nth);
 }
 
 size_t ThetaArray::size() const { return m_nth; }
 
-const double *ThetaArray::data() const { return m_nodes; }
+const double *ThetaArray::data() const { return m_nodes.get(); }
 
 double ThetaArray::node(size_t i) const { return m_nodes[i]; }
 
@@ -79,10 +59,10 @@ double ThetaArray::cos(size_t i) const { return m_cos[i]; }
 
 PhiArray::PhiArray(size_t nphi) : m_nphi(nphi)
 {
-    m_nodes = new double[m_nphi];
+    m_nodes = std::unique_ptr<double[]>(new double[m_nphi]);
 
-    m_sin = new double[m_nphi];
-    m_cos = new double[m_nphi];
+    m_sin = std::unique_ptr<double[]>(new double[m_nphi]);
+    m_cos = std::unique_ptr<double[]>(new double[m_nphi]);
 
     double dphi = M_PI_2 / (m_nphi - 1);
 
@@ -90,41 +70,13 @@ PhiArray::PhiArray(size_t nphi) : m_nphi(nphi)
     for (size_t j = 0; j < m_nphi; ++j)
     {
         m_nodes[j] = j * dphi;
-        sincos(m_nodes[j], m_sin + j, m_cos + j);
+        sincos(m_nodes[j], m_sin.get() + j, m_cos.get() + j);
     }
-}
-
-PhiArray::~PhiArray()
-{
-    delete[] m_nodes;
-
-    delete[] m_sin;
-    delete[] m_cos;
-}
-
-PhiArray::PhiArray(PhiArray&& other)
-{
-    std::swap(m_nphi, other.m_nphi);
-    std::swap(m_nodes, other.m_nodes);
-
-    std::swap(m_sin, other.m_sin);
-    std::swap(m_cos, other.m_cos);
-}
-
-PhiArray& PhiArray::operator=(PhiArray&& other)
-{
-    std::swap(m_nphi, other.m_nphi);
-    std::swap(m_nodes, other.m_nodes);
-
-    std::swap(m_sin, other.m_sin);
-    std::swap(m_cos, other.m_cos);
-
-    return *this;
 }
 
 size_t PhiArray::size() const { return m_nphi; }
 
-const double *PhiArray::data() const { return m_nodes; }
+const double *PhiArray::data() const { return m_nodes.get(); }
 
 double PhiArray::node(size_t j) const { return m_nodes[j]; }
 
@@ -158,8 +110,7 @@ DataArray::~DataArray()
     if (m_data && m_owndata) fftw_free(m_data);
 }
 
-DataArray::DataArray(DataArray&& other) :
-    m_data(nullptr), m_owndata(false)
+DataArray::DataArray(DataArray&& other) : DataArray()
 {
     std::swap(m_nth, other.m_nth);
     std::swap(m_nphi, other.m_nphi);
@@ -237,7 +188,7 @@ DataArray SphericalMesh::makeArray() const
     return DataArray(m_nth, m_nphi);
 }
 
-DataArray SphericalMesh::makeArray(double *ptr) const
+DataArray SphericalMesh::wrapArray(double *ptr) const
 {
     return DataArray(m_nth, m_nphi, ptr);
 }
@@ -246,7 +197,7 @@ YlmLookupTable::YlmLookupTable(SphericalMesh const& mesh) :
     m_nth(mesh.theta().size()), m_lmax(m_nth - 1)
 {
     size_t nsz = m_nth * (m_lmax + 2) * (m_lmax + 2) / 4;
-    m_data = new double[nsz];
+    m_data = std::unique_ptr<double[]>(new double[nsz]);
 
     double *lwk = new double[gsl_sf_legendre_array_n(m_lmax)];
 
@@ -269,25 +220,6 @@ YlmLookupTable::YlmLookupTable(SphericalMesh const& mesh) :
     }
 
     delete[] lwk;
-}
-
-YlmLookupTable::~YlmLookupTable()
-{
-    if (m_data) delete[] m_data;
-}
-
-YlmLookupTable::YlmLookupTable(YlmLookupTable&& other) : m_data(nullptr)
-{
-    std::swap(m_nth, other.m_nth);
-    std::swap(m_data, other.m_data);
-}
-
-YlmLookupTable& YlmLookupTable::operator=(YlmLookupTable&& other)
-{
-    std::swap(m_nth, other.m_nth);
-    std::swap(m_data, other.m_data);
-
-    return *this;
 }
 
 size_t YlmLookupTable::lmax() const { return m_lmax; }
@@ -314,7 +246,7 @@ YlmTransformer::YlmTransformer(SphericalMesh const& mesh) :
     double *wk_out = reinterpret_cast<double*>
         (fftw_malloc(m_nth * m_nphi * sizeof(double)));
 
-    int sz[] = { m_nphi };
+    int sz[] = { static_cast<int>(m_nphi) };
     fftw_r2r_kind kinds[] = { FFTW_REDFT00 };
 
     // plan an in-place fft that may overwrite its input
